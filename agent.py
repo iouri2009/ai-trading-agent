@@ -4,7 +4,7 @@ import pandas as pd
 import ta
 import time
 
-BASE_URL = "https://api.bytick.com"
+BASE_URL = "https://api.binance.com"
 
 
 def safe_request(url, params, retries=3):
@@ -60,34 +60,35 @@ def safe_request(url, params, retries=3):
 
 def get_kline(symbol, interval):
 
-    url = BASE_URL + "/v5/market/kline"
+    interval_map = {
+        "15": "15m",
+        "60": "1h",
+        "240": "4h",
+        "D": "1d"
+    }
+
+    url = BASE_URL + "/api/v3/klines"
 
     params = {
-        "category": "linear",
         "symbol": symbol,
-        "interval": interval,
+        "interval": interval_map[interval],
         "limit": 200
     }
 
-    data = safe_request(url, params)
+    r = requests.get(url, params=params)
+    data = r.json()
 
-    if data is None:
-        raise Exception("Kline API error")
+    df = pd.DataFrame(data, columns=[
+        "timestamp","open","high","low","close","volume",
+        "close_time","qav","trades","tbbav","tbqav","ignore"
+    ])
 
-    rows = data["result"]["list"]
+    df = df[["timestamp","open","high","low","close","volume"]]
 
-    if not rows:
-        raise Exception("No kline data returned")
-
-    df = pd.DataFrame(rows)
-    df = df.iloc[:, 0:6]
-
-    df.columns = ["timestamp", "open", "high", "low", "close", "volume"]
-
-    for c in ["open", "high", "low", "close", "volume"]:
+    for c in ["open","high","low","close","volume"]:
         df[c] = df[c].astype(float)
 
-    return df[::-1].reset_index(drop=True)
+    return df
 
 
 # ===============================
@@ -95,6 +96,7 @@ def get_kline(symbol, interval):
 # ===============================
 
 def get_open_interest(symbol):
+    return 0
 
     url = BASE_URL + "/v5/market/open-interest"
 
@@ -129,6 +131,7 @@ def get_open_interest(symbol):
 # ===============================
 
 def get_funding(symbol):
+    return 0
 
     url = BASE_URL + "/v5/market/funding/history"
 
@@ -156,6 +159,7 @@ def get_funding(symbol):
 # ===============================
 
 def get_orderbook(symbol):
+    return 0
 
     url = BASE_URL + "/v5/market/orderbook"
 
@@ -191,6 +195,7 @@ def get_orderbook(symbol):
 # ===============================
 
 def get_trade_flow(symbol):
+    return 0
 
     url = BASE_URL + "/v5/market/recent-trade"
 
