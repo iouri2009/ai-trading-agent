@@ -513,6 +513,23 @@ def analyze(symbol):
     print("======================================\n")
 
 
+def run_analysis(symbol):
+    import io
+    import sys
+
+    buffer = io.StringIO()
+    sys_stdout = sys.stdout
+    sys.stdout = buffer
+
+    try:
+        analyze(symbol)
+    except Exception as e:
+        print("Error:", e)
+
+    sys.stdout = sys_stdout
+    return buffer.getvalue()
+
+
 # ===============================
 # MAIN
 # ===============================
