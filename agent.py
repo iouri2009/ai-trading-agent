@@ -4,15 +4,20 @@ import pandas as pd
 import ta
 import time
 
-BASE_URL = "https://api.bybit.com"
+BASE_URL = "https://api.bytick.com"
 
 
 def safe_request(url, params, retries=3):
     last_error = None
 
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json"
+    }
+
     for _ in range(retries):
         try:
-            r = requests.get(url, params=params, timeout=10)
+            r = requests.get(url, params=params, headers=headers, timeout=10)
 
             # проверка HTTP
             if r.status_code != 200:
