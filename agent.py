@@ -71,25 +71,42 @@ def get_kline(symbol, interval):
 
     params = {
         "symbol": symbol,
-        "interval": interval_map[interval],
+        "interval": interval_map.get(interval, "15m"),
         "limit": 200
     }
 
-    r = requests.get(url, params=params)
-    data = r.json()
+    try:
+        r = requests.get(url, params=params, timeout=10)
 
-    df = pd.DataFrame(data, columns=[
-        "timestamp","open","high","low","close","volume",
-        "close_time","qav","trades","tbbav","tbqav","ignore"
-    ])
+        # проверка HTTP
+        if r.status_code != 200:
+            raise Exception(f"HTTP error {r.status_code}: {r.text}")
 
-    df = df[["timestamp","open","high","low","close","volume"]]
+        data = r.json()
 
-    for c in ["open","high","low","close","volume"]:
-        df[c] = df[c].astype(float)
+        # проверка на пустой ответ
+        if not data or len(data) == 0:
+            raise Exception("No data from Binance")
 
-    return df
+        df = pd.DataFrame(data, columns=[
+            "timestamp","open","high","low","close","volume",
+            "close_time","qav","trades","tbbav","tbqav","ignore"
+        ])
 
+        df = df[["timestamp","open","high","low","close","volume"]]
+
+        for c in ["open","high","low","close","volume"]:
+            df[c] = df[c].astype(float)
+
+        # финальная защита
+        if df.empty or len(df) < 20:
+            raise Exception("Not enough market data")
+
+        return df
+
+    except Exception as e:
+        print("Kline error:", e)
+        return None
 
 # ===============================
 # OPEN INTEREST
