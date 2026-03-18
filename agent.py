@@ -13,13 +13,28 @@ def safe_request(url, params, retries=3):
     for _ in range(retries):
         try:
             r = requests.get(url, params=params, timeout=10)
-            data = r.json()
 
-            if data.get("retCode") != 0:
-                last_error = data.get("retMsg", "Unknown API error")
+            # проверка HTTP
+            if r.status_code != 200:
+                last_error = f"HTTP {r.status_code} - {r.text}"
                 time.sleep(1)
                 continue
 
+            # безопасный JSON
+            try:
+                data = r.json()
+            except Exception:
+                last_error = f"Invalid JSON response: {r.text}"
+                time.sleep(1)
+                continue
+
+            # проверка API ответа
+            if data.get("retCode") != 0:
+                last_error = data.get("retMsg", "API error")
+                time.sleep(1)
+                continue
+
+            # проверка result
             if "result" not in data or data["result"] is None:
                 last_error = "Missing result in response"
                 time.sleep(1)
@@ -33,7 +48,6 @@ def safe_request(url, params, retries=3):
 
     print("Request failed:", last_error)
     return None
-
 
 # ===============================
 # MARKET DATA
