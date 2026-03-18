@@ -28,5 +28,8 @@ def home():
         result = run_analysis(symbol)
     return render_template_string(HTML, result=result)
 
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    import os
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
