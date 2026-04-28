@@ -67,3 +67,6 @@ inject_*.py
 
 # Playback/backtest scripts - keep out for first clean deploy unless reviewed
 playback*.py
+
+# Runtime data directory
+data/
