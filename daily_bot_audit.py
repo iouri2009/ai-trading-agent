@@ -12,6 +12,7 @@ Does NOT modify journal files.
 import json
 import os
 import re
+import requests
 from collections import Counter, defaultdict
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -65,6 +66,65 @@ def read_tail(path, max_bytes=2_000_000):
             f.seek(size - max_bytes)
         data = f.read()
     return data.decode("utf-8", errors="replace")
+
+
+def load_env_file():
+    """Tiny .env loader. Does not print secrets."""
+    env_path = BASE / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, val = line.split("=", 1)
+        os.environ.setdefault(key.strip(), val.strip())
+
+
+def send_telegram(text):
+    """Send report to Telegram using TELEGRAM_TOKEN and TELEGRAM_CHAT_ID from .env."""
+    load_env_file()
+    token = os.getenv("TELEGRAM_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+
+    if not token or not chat_id:
+        print("WARN — Telegram credentials missing, report not sent")
+        return False
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+
+    # Telegram message limit is ~4096 chars. Split safely.
+    chunks = []
+    current = ""
+    for line in text.splitlines():
+        if len(current) + len(line) + 1 > 3500:
+            chunks.append(current)
+            current = line
+        else:
+            current = current + "\n" + line if current else line
+    if current:
+        chunks.append(current)
+
+    ok = True
+    for i, chunk in enumerate(chunks, start=1):
+        prefix = "" if len(chunks) == 1 else f"[{i}/{len(chunks)}]\n"
+        try:
+            r = requests.post(
+                url,
+                data={
+                    "chat_id": chat_id,
+                    "text": prefix + chunk,
+                    "disable_web_page_preview": True,
+                },
+                timeout=20,
+            )
+            if r.status_code != 200:
+                ok = False
+                print(f"WARN — Telegram send failed status={r.status_code} body={r.text[:200]}")
+        except Exception as e:
+            ok = False
+            print(f"WARN — Telegram send error: {e}")
+    return ok
 
 
 def main():
@@ -234,6 +294,9 @@ def main():
     print("OK — audit created")
     print(txt_path)
     print(json_path)
+
+    sent = send_telegram("\n".join(lines))
+    print("Telegram sent:", sent)
 
 
 if __name__ == "__main__":
