@@ -25,6 +25,7 @@ JOURNAL = BASE / "journal.json"
 TRADES = BASE / "journal_trades.json"
 FILLS = BASE / "journal_fills.json"
 BOT_LOG = BASE / "bot.log"
+EXPERIMENTS = BASE / "data" / "experiments" / "experiments.json"
 
 AEST = timezone(timedelta(hours=10))
 
@@ -55,6 +56,66 @@ def in_last_24h(ts):
         return False
     now = datetime.now(AEST)
     return ts >= now - timedelta(hours=24)
+
+
+def parse_aest_datetime(text):
+    """Parse YYYY-MM-DD HH:MM:SS as AEST."""
+    try:
+        return datetime.strptime(text, "%Y-%m-%d %H:%M:%S").replace(tzinfo=AEST)
+    except Exception:
+        return None
+
+
+def load_experiments():
+    """Load experiment tracker. Read-only."""
+    data = load_json(EXPERIMENTS, {"experiments": []})
+    if isinstance(data, dict):
+        return data.get("experiments", [])
+    return []
+
+
+def summarize_experiments(now):
+    experiments = load_experiments()
+    active = []
+    completed = []
+
+    for exp in experiments:
+        status = str(exp.get("status", "")).lower()
+        start = parse_aest_datetime(exp.get("start_time_aest", ""))
+        duration = float(exp.get("duration_hours") or 0)
+
+        runtime_hours = None
+        progress_pct = None
+        if start:
+            runtime_hours = round((now - start).total_seconds() / 3600, 2)
+            if duration > 0:
+                progress_pct = round(min(100, max(0, runtime_hours / duration * 100)), 1)
+
+        item = {
+            "experiment_id": exp.get("experiment_id"),
+            "mode": exp.get("mode"),
+            "change": exp.get("change"),
+            "status": exp.get("status"),
+            "start_time_aest": exp.get("start_time_aest"),
+            "duration_hours": duration,
+            "runtime_hours": runtime_hours,
+            "progress_pct": progress_pct,
+            "success_metric": exp.get("success_metric"),
+            "rollback_rule": exp.get("rollback_rule"),
+            "notes": exp.get("notes"),
+        }
+
+        if status == "active":
+            active.append(item)
+        else:
+            completed.append(item)
+
+    return {
+        "active_count": len(active),
+        "completed_count": len(completed),
+        "active": active,
+        "completed_recent": completed[-5:],
+    }
 
 
 def read_tail(path, max_bytes=2_000_000):
@@ -130,6 +191,7 @@ def send_telegram(text):
 def main():
     now = datetime.now(AEST)
     stamp = now.strftime("%Y%m%d_%H%M%S")
+    experiment_summary = summarize_experiments(now)
 
     journal = load_json(JOURNAL, [])
     trades = load_json(TRADES, [])
@@ -239,6 +301,7 @@ def main():
             "invalid_tp1_r": invalid_tp1[-10:],
             "sl_too_tight": sl_too_tight[-10:],
         },
+        "experiments": experiment_summary,
     }
 
     lines = []
@@ -273,6 +336,21 @@ def main():
     lines.append(f"- Leverage error symbols: {Counter(leverage_errors).most_common(10)}")
     lines.append(f"- Recent INVALID_TP1_R: {invalid_tp1[-5:]}")
     lines.append(f"- Recent SL too tight: {sl_too_tight[-5:]}")
+    lines.append("")
+    lines.append("EXPERIMENTS")
+    lines.append(f"- Active experiments: {experiment_summary.get('active_count', 0)}")
+    if experiment_summary.get("active"):
+        for exp in experiment_summary["active"]:
+            progress = exp.get("progress_pct")
+            runtime = exp.get("runtime_hours")
+            duration = exp.get("duration_hours")
+            progress_txt = f"{runtime}h / {duration}h ({progress}%)" if progress is not None else "runtime unknown"
+            lines.append(f"  • {exp.get('experiment_id')} | {exp.get('mode')} | {progress_txt}")
+            lines.append(f"    Change: {exp.get('change')}")
+            lines.append(f"    Success: {exp.get('success_metric')}")
+            lines.append(f"    Rollback: {exp.get('rollback_rule')}")
+    else:
+        lines.append("  none")
     lines.append("")
     lines.append("AI TAKEAWAY")
     if len(blocked_24h) == 0 and len(scan_starts) > 0:
