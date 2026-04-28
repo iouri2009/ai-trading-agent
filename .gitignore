@@ -1,1 +1,69 @@
+# Python
 venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# macOS
+.DS_Store
+
+# Secrets / credentials
+.env
+.env.*
+*.pem
+*.key
+*secret*
+*token*
+
+# Runtime logs
+*.log
+bot.log
+bot.error.log
+watchdog.log
+
+# Runtime journals / data
+journal.json
+journal_trades.json
+journal_fills.json
+trades.db
+trade_db.sqlite
+*.db
+
+# Runtime state/config that should not be pushed blindly
+mode.txt
+autotrade_mode.txt
+watchdog_state.json
+account_config.json
+bots_config.json
+
+# Backups / generated files
+*.backup*
+*.bak*
+*_backup*
+*.save
+_archive/
+
+# Playback outputs / test artifacts
+playback_*results*.json
+playback_v5_trades.json
+playback_v5_fullyear.json
+
+# Local dashboards / generated HTML
+journal_dashboard_*.html
+journal_v4.html
+symbol_view.html
+
+# Temporary files
+1.5
+
+# Old strategy snapshots / archived versions
+agent_*_*.py
+agent_v*.py
+
+# One-off patch scripts
+patch_*.py
+inject_*.py
+
+# Playback/backtest scripts - keep out for first clean deploy unless reviewed
+playback*.py
